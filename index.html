@@ -1,32 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>📲 Auto-Copy Sync (Realtime DB)</title>
+  <title>📲 Clipboard Sync (with Paste Button)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: sans-serif; padding: 20px; text-align: center; }
     input, textarea { width: 90%; font-size: 16px; margin: 10px 0; padding: 10px; }
     textarea { height: 150px; }
-    button { padding: 10px 20px; font-size: 16px; }
+    button { padding: 10px 15px; font-size: 16px; margin: 5px; }
     p { font-weight: bold; }
   </style>
-
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
-  <h2>📋 Auto-Copy Between Devices (Realtime DB)</h2>
-
-  <input id="sessionId" placeholder="Enter Session ID (same on both phones)" />
+  <h2>📲 Clipboard Sync (with Paste Button)</h2>
+  <input id="sessionId" placeholder="Enter Session ID" />
   <button onclick="connect()">🔗 Connect</button>
+  <br>
+  <button onclick="pasteFromClipboard()">📋 Paste & Send</button>
 
-  <textarea id="textData" placeholder="Type to sync..." disabled></textarea>
-  <p id="status">⏳ Waiting for session ID...</p>
+  <textarea id="textData" placeholder="Paste or type here..." disabled></textarea>
+  <p id="status">⏳ Not connected...</p>
 
   <script>
-    // 🔧 Replace with your Firebase config:
     const firebaseConfig = {
   apiKey: "AIzaSyCTLn4g2_i5xJ8kcheWF9HdBL6e2uBxdsE",
   databaseURL:'https://copypaste-7012d-default-rtdb.firebaseio.com',
@@ -41,51 +39,59 @@
     const db = firebase.database();
 
     let ref = null;
-    let debounce = null;
-    let lastSent = ""; // To prevent echo syncing
+    let lastSent = "", lastReceived = "";
 
     function connect() {
       const sessionId = document.getElementById("sessionId").value.trim();
       const textarea = document.getElementById("textData");
       const status = document.getElementById("status");
 
-      if (!sessionId) {
-        alert("Please enter a session ID");
-        return;
-      }
+      if (!sessionId) return alert("Please enter a session ID");
 
       ref = db.ref("clipboard/" + sessionId);
-      status.innerText = "✅ Connected to session: " + sessionId;
       textarea.disabled = false;
+      status.innerText = "✅ Connected to session: " + sessionId;
 
-      // Listen to real-time changes
+      // Listen for sync
       ref.on('value', snapshot => {
         const data = snapshot.val();
-        if (data && data.text !== textarea.value) {
+        if (data && data.text !== textarea.value && data.text !== lastSent) {
           textarea.value = data.text;
-          status.innerText = "📥 Synced and copied to clipboard";
-
-          // Avoid self-copy if user is sender
-          if (data.text !== lastSent) {
-            navigator.clipboard.writeText(data.text).then(() => {
-              console.log("📋 Copied to clipboard");
-            }).catch(err => {
-              console.warn("⚠️ Clipboard copy failed:", err);
-            });
-          }
+          lastReceived = data.text;
+          navigator.clipboard.writeText(data.text).catch(console.warn);
+          status.innerText = "📥 Synced & copied";
         }
       });
 
-      // On typing, update Firebase
-      textarea.addEventListener('input', () => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => {
-          lastSent = textarea.value;
-          ref.set({ text: textarea.value })
-            .then(() => status.innerText = "✅ Sent to session: " + sessionId)
-            .catch(err => alert("Error: " + err.message));
-        }, 400);
+      // Optional: input sends text
+      textarea.addEventListener("input", () => {
+        const text = textarea.value;
+        if (text !== lastReceived) {
+          lastSent = text;
+          ref.set({ text: text })
+            .then(() => status.innerText = "✅ Sent")
+            .catch(err => alert("Send error: " + err.message));
+        }
       });
+    }
+
+    function pasteFromClipboard() {
+      const textarea = document.getElementById("textData");
+      const status = document.getElementById("status");
+
+      navigator.clipboard.readText()
+        .then(text => {
+          if (!text) return alert("Clipboard is empty!");
+          textarea.value = text;
+          lastSent = text;
+          ref.set({ text: text })
+            .then(() => status.innerText = "📤 Pasted & sent")
+            .catch(err => alert("Send error: " + err.message));
+        })
+        .catch(err => {
+          alert("❌ Clipboard access denied. Tap the textarea and paste manually.");
+          console.warn(err);
+        });
     }
   </script>
 
