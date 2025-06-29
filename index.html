@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>📲 Real-Time Copy Paste (Realtime DB)</title>
+  <title>📲 Copy Paste by User (Realtime DB)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: sans-serif; padding: 20px; text-align: center; }
-    textarea { width: 90%; height: 150px; margin: 10px 0; font-size: 16px; }
+    input, textarea { width: 90%; font-size: 16px; margin: 10px 0; padding: 10px; }
+    textarea { height: 150px; }
     button { padding: 10px 20px; font-size: 16px; }
     p { font-weight: bold; }
   </style>
@@ -16,9 +17,13 @@
 </head>
 <body>
 
-  <h2>🔄 Real-Time Copy-Paste (Realtime DB)</h2>
-  <textarea id="textData" placeholder="Type here, syncs live..."></textarea><br>
-  <p id="status">⏳ Listening for changes...</p>
+  <h2>🔒 Real-Time Copy-Paste by Session</h2>
+
+  <input id="sessionId" placeholder="Enter Session ID (e.g. vishnu123)" />
+  <button onclick="connect()">🔗 Connect</button>
+
+  <textarea id="textData" placeholder="Type to sync..." disabled></textarea>
+  <p id="status">⏳ Waiting for session ID...</p>
 
   <script>
     // Replace this with your real Firebase config
@@ -32,33 +37,45 @@
   appId: "1:222988500391:web:5e7b4a849d070c6dae8a82"
 };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const ref = db.ref("clipboard/shared");
 
-    const textarea = document.getElementById("textData");
-    const status = document.getElementById("status");
+    let ref = null;
+    let debounce = null;
 
-    // Real-time listener
-    ref.on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (data && data.text !== textarea.value) {
-        textarea.value = data.text;
-        status.innerText = "📥 Synced from other device";
+    function connect() {
+      const sessionId = document.getElementById("sessionId").value.trim();
+      const textarea = document.getElementById("textData");
+      const status = document.getElementById("status");
+
+      if (!sessionId) {
+        alert("Please enter a session ID");
+        return;
       }
-    });
 
-    // On user typing, update Firebase
-    let typingTimer;
-    textarea.addEventListener('input', () => {
-      clearTimeout(typingTimer);
-      typingTimer = setTimeout(() => {
-        ref.set({ text: textarea.value })
-          .then(() => status.innerText = "✅ Sent to Firebase")
-          .catch(err => alert("Error: " + err.message));
-      }, 500); // waits for typing to pause
-    });
+      ref = db.ref("clipboard/" + sessionId);
+      status.innerText = "✅ Connected to session: " + sessionId;
+      textarea.disabled = false;
+
+      // Listen for changes
+      ref.on('value', snapshot => {
+        const data = snapshot.val();
+        if (data && data.text !== textarea.value) {
+          textarea.value = data.text;
+          status.innerText = "📥 Synced from session: " + sessionId;
+        }
+      });
+
+      // Update on user input
+      textarea.addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => {
+          ref.set({ text: textarea.value })
+            .then(() => status.innerText = "✅ Sent to session: " + sessionId)
+            .catch(err => alert("Error: " + err.message));
+        }, 400);
+      });
+    }
   </script>
 
 </body>
