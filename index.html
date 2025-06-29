@@ -1,56 +1,64 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Mobile to Mobile Copy-Paste</title>
+  <title>📲 Real-Time Copy Paste (Realtime DB)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: sans-serif; padding: 20px; text-align: center; }
     textarea { width: 90%; height: 150px; margin: 10px 0; font-size: 16px; }
     button { padding: 10px 20px; font-size: 16px; }
+    p { font-weight: bold; }
   </style>
+
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
-  <h2>📱 Copy-Paste Mobile to Mobile</h2>
-  <textarea id="textData" placeholder="Type or paste your content here..."></textarea><br>
-  <button onclick="sendData()">📤 Send</button>
-  <button onclick="receiveData()">📥 Receive</button>
-  <p id="status"></p>
+  <h2>🔄 Real-Time Copy-Paste (Realtime DB)</h2>
+  <textarea id="textData" placeholder="Type here, syncs live..."></textarea><br>
+  <p id="status">⏳ Listening for changes...</p>
 
   <script>
-    // Your Firebase config
+    // Replace this with your real Firebase config
     const firebaseConfig = {
-  apiKey: "AIzaSyCTLn4g2_i5xJ8kcheWF9HdBL6e2uBxdsE",
-  databaseURL:'https://copypaste-7012d-default-rtdb.firebaseio.com',
-  authDomain: "copypaste-7012d.firebaseapp.com",
-  projectId: "copypaste-7012d",
-  storageBucket: "copypaste-7012d.firebasestorage.app",
-  messagingSenderId: "222988500391",
-  appId: "1:222988500391:web:5e7b4a849d070c6dae8a82"
-};
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const path = "clipboard/shared"; // You can generate a random ID or user-specific path
+    const ref = db.ref("clipboard/shared");
 
-    function sendData() {
-      const data = document.getElementById("textData").value;
-      db.ref(path).set({ text: data })
-        .then(() => document.getElementById("status").innerText = "✅ Sent successfully.")
-        .catch(err => alert("Error: " + err));
-    }
+    const textarea = document.getElementById("textData");
+    const status = document.getElementById("status");
 
-    function receiveData() {
-      db.ref(path).once('value').then(snapshot => {
-        const data = snapshot.val();
-        document.getElementById("textData").value = data?.text || '';
-        document.getElementById("status").innerText = "📥 Received latest data.";
-      });
-    }
+    // Real-time listener
+    ref.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.text !== textarea.value) {
+        textarea.value = data.text;
+        status.innerText = "📥 Synced from other device";
+      }
+    });
+
+    // On user typing, update Firebase
+    let typingTimer;
+    textarea.addEventListener('input', () => {
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        ref.set({ text: textarea.value })
+          .then(() => status.innerText = "✅ Sent to Firebase")
+          .catch(err => alert("Error: " + err.message));
+      }, 500); // waits for typing to pause
+    });
   </script>
 
 </body>
