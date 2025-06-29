@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>📲 Copy Paste by User (Realtime DB)</title>
+  <title>📲 Auto-Copy Sync (Realtime DB)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: sans-serif; padding: 20px; text-align: center; }
@@ -17,16 +17,16 @@
 </head>
 <body>
 
-  <h2>🔒 Real-Time Copy-Paste by Session</h2>
+  <h2>📋 Auto-Copy Between Devices (Realtime DB)</h2>
 
-  <input id="sessionId" placeholder="Enter Session ID (e.g. vishnu123)" />
+  <input id="sessionId" placeholder="Enter Session ID (same on both phones)" />
   <button onclick="connect()">🔗 Connect</button>
 
   <textarea id="textData" placeholder="Type to sync..." disabled></textarea>
   <p id="status">⏳ Waiting for session ID...</p>
 
   <script>
-    // Replace this with your real Firebase config
+    // 🔧 Replace with your Firebase config:
     const firebaseConfig = {
   apiKey: "AIzaSyCTLn4g2_i5xJ8kcheWF9HdBL6e2uBxdsE",
   databaseURL:'https://copypaste-7012d-default-rtdb.firebaseio.com',
@@ -42,6 +42,7 @@
 
     let ref = null;
     let debounce = null;
+    let lastSent = ""; // To prevent echo syncing
 
     function connect() {
       const sessionId = document.getElementById("sessionId").value.trim();
@@ -57,19 +58,29 @@
       status.innerText = "✅ Connected to session: " + sessionId;
       textarea.disabled = false;
 
-      // Listen for changes
+      // Listen to real-time changes
       ref.on('value', snapshot => {
         const data = snapshot.val();
         if (data && data.text !== textarea.value) {
           textarea.value = data.text;
-          status.innerText = "📥 Synced from session: " + sessionId;
+          status.innerText = "📥 Synced and copied to clipboard";
+
+          // Avoid self-copy if user is sender
+          if (data.text !== lastSent) {
+            navigator.clipboard.writeText(data.text).then(() => {
+              console.log("📋 Copied to clipboard");
+            }).catch(err => {
+              console.warn("⚠️ Clipboard copy failed:", err);
+            });
+          }
         }
       });
 
-      // Update on user input
+      // On typing, update Firebase
       textarea.addEventListener('input', () => {
         clearTimeout(debounce);
         debounce = setTimeout(() => {
+          lastSent = textarea.value;
           ref.set({ text: textarea.value })
             .then(() => status.innerText = "✅ Sent to session: " + sessionId)
             .catch(err => alert("Error: " + err.message));
